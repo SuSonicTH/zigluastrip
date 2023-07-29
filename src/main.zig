@@ -9,7 +9,6 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
 
     if (args.len == 3) {
-        try std.io.getStdOut().writer().print("luastrip: stripping {s} to {s}\n", .{ args[1], args[2] });
         try luastrip_file(args[1], args[2], allocator);
     } else {
         try std.io.getStdOut().writer().writeAll("\nusage: zigluastrip <input_file> <output_file>\n");
