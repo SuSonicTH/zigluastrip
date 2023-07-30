@@ -107,18 +107,24 @@ const Tokenizer = struct {
             },
             '-' => {
                 if (self.pos < self.data.len - 2 and self.data[self.pos + 1] == '-') {
-                    while (self.pos < self.data.len - 1 and self.data[self.pos] != '\r' and self.data[self.pos] != '\n') {
-                        self.pos += 1;
+                    const blockLen = getBlockLen(self.data[self.pos + 2 ..]);
+                    if (blockLen > 0) {
+                        self.pos += blockLen + 2;
+                    } else {
+                        while (self.pos < self.data.len - 1 and self.data[self.pos] != '\r' and self.data[self.pos] != '\n') {
+                            self.pos += 1;
+                        }
                     }
                     return self.next_token();
-                } else { //todo: check for number and return negative number as token
+                } else {
                     self.pos += 1;
                     return "-";
                 }
             },
             '_', 'a'...'z', 'A'...'Z', '0'...'9' => {
                 const start = self.pos;
-                while (self.pos < self.data.len - 1) {
+                self.pos += 1;
+                while (self.pos < self.data.len) {
                     switch (self.data[self.pos]) {
                         '_', 'a'...'z', 'A'...'Z', '0'...'9' => {
                             self.pos += 1;
@@ -128,11 +134,13 @@ const Tokenizer = struct {
                         },
                     }
                 }
+                std.log.debug("err>{s}<", .{self.data[start..]});
+                unreachable;
             },
             '"' => {
                 const start = self.pos;
                 self.pos += 1;
-                while (self.pos < self.data.len - 1 and self.data[self.pos] != '"') {
+                while (self.pos < self.data.len and self.data[self.pos] != '"') {
                     self.pos += 1;
                 }
                 self.pos += 1;
@@ -148,13 +156,11 @@ const Tokenizer = struct {
                 return self.data[start..self.pos];
             },
             '[' => {
-                if (self.data[self.pos + 1] == '[') {
+                const blockLen = getBlockLen(self.data[self.pos..]);
+                if (blockLen > 0) {
                     const start = self.pos;
-                    while (self.pos < self.data.len - 2 and !(self.data[self.pos] == ']' and self.data[self.pos + 1] == ']')) {
-                        self.pos += 1;
-                    }
-                    self.pos += 3;
-                    return self.data[start..self.pos];
+                    self.pos += blockLen;
+                    return self.data[start .. start + blockLen];
                 } else {
                     self.pos += 1;
                     return "[";
@@ -183,3 +189,27 @@ const Tokenizer = struct {
         unreachable;
     }
 };
+
+fn getBlockLen(data: []u8) usize {
+    const eqals = "========================================================================================================================";
+    if (data[0] != '[') {
+        return 0;
+    }
+    var eqlen: usize = 0;
+    while (data[1 + eqlen] == '=' and eqlen <= eqals.len) {
+        eqlen += 1;
+    }
+    if (data[eqlen + 1] != '[') {
+        return 0;
+    }
+
+    var pos = eqlen + 2;
+    while (pos < data.len) : (pos += 1) {
+        if (data[pos] == ']') {
+            if ((eqlen == 0 or std.mem.eql(u8, data[pos + 1 .. pos + 1 + eqlen], eqals[0..eqlen])) and data[pos + 1 + eqlen] == ']') {
+                return pos + eqlen + 2;
+            }
+        }
+    }
+    return 0;
+}
