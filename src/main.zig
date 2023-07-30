@@ -88,7 +88,7 @@ const Tokenizer = struct {
     }
 
     fn next_token(self: *Tokenizer) []const u8 {
-        if (self.pos == self.data.len - 1) {
+        if (self.pos >= self.data.len - 1) {
             return "\x00";
         }
 
