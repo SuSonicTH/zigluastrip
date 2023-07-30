@@ -140,7 +140,7 @@ const Tokenizer = struct {
             '"' => {
                 const start = self.pos;
                 self.pos += 1;
-                while (self.pos < self.data.len and self.data[self.pos] != '"') {
+                while (self.pos < self.data.len and (self.data[self.pos] != '"' or self.data[self.pos - 1] == '\\')) {
                     self.pos += 1;
                 }
                 self.pos += 1;
@@ -149,7 +149,7 @@ const Tokenizer = struct {
             '\'' => {
                 const start = self.pos;
                 self.pos += 1;
-                while (self.pos < self.data.len - 1 and self.data[self.pos] != '\'') {
+                while (self.pos < self.data.len and (self.data[self.pos] != '\'' or self.data[self.pos - 1] == '\\')) {
                     self.pos += 1;
                 }
                 self.pos += 1;
