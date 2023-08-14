@@ -8,6 +8,10 @@ pub fn build(b: *std.Build) void {
         .source_file = .{ .path = "src/luastrip.zig" },
     });
 
+    _ = b.addModule("zigLuaStripExe", .{
+        .source_file = .{ .path = "src/main.zig" },
+    });
+
     const exe = b.addExecutable(.{
         .name = "zigluastrip",
         .root_source_file = .{ .path = "src/main.zig" },
