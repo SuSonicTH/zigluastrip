@@ -1,4 +1,5 @@
 const std = @import("std");
+const testing = std.testing;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -20,11 +21,12 @@ pub fn luastrip_file(input: [:0]const u8, output: [:0]const u8, allocator: std.m
     defer input_file.close();
 
     const file_size = (try input_file.stat()).size;
-    const data = try allocator.alloc(u8, file_size);
+    const data = try allocator.alloc(u8, file_size + 1);
     defer allocator.free(data);
     _ = try input_file.reader().readAll(data);
+    data[file_size] = 0;
 
-    const stripped = try luastrip(data, allocator);
+    const stripped = try luastrip(data[0..file_size :0], allocator);
     defer allocator.free(stripped);
 
     const output_file = try std.fs.cwd().createFile(output, .{});
@@ -33,29 +35,25 @@ pub fn luastrip_file(input: [:0]const u8, output: [:0]const u8, allocator: std.m
     try output_file.writer().writeAll(stripped);
 }
 
-pub fn luastrip(source: []u8, allocator: std.mem.Allocator) ![:0]const u8 {
-    var iterator: Tokenizer = .{
-        .data = source,
-    };
-    iterator.peek = iterator.next_token();
+pub fn luastrip(source: [:0]const u8, allocator: std.mem.Allocator) ![:0]const u8 {
+    var tokenizer = Tokenizer.init(source);
 
     const buffer = try allocator.alloc(u8, source.len + 1);
     errdefer allocator.free(buffer);
     var pos: usize = 0;
 
-    var token = iterator.next();
-    while (token[0] != 0) : (token = iterator.next()) {
+    var token = tokenizer.next();
+    try std.io.getStdOut().writer().print(">{s}<<\n", .{token});
+    while (token[0] != 0) : (token = tokenizer.next()) {
         std.mem.copyForwards(u8, buffer[pos..], token);
         pos += token.len;
+        try std.io.getStdOut().writer().print(">{s}<>{s}<\n", .{ token, tokenizer.peek });
+
         switch (token[0]) {
-            ' ', '{', '}', '(', ')', '.', '+', '-', '*', '/', '"', '\'', '[', ']', '\n', '#', '=', ',', '~', ':' => {
-                if (iterator.peek[0] == ' ') {
-                    _ = iterator.next();
-                }
-            },
+            '{', '}', '(', ')', '.', '+', '-', '*', '/', '"', '\'', '[', ']', '#', '=', ',', '~', ':' => {},
             else => {
-                switch (iterator.peek[0]) {
-                    ' ', '{', '}', '(', ')', '.', '+', '-', '*', '/', '"', '\'', '[', ']', '\n', '#', '=', ',', '~', ':' => {},
+                switch (tokenizer.peek[0]) {
+                    0, '{', '}', '(', ')', '.', '+', '-', '*', '/', '"', '\'', '[', ']', '#', '=', ',', '~', ':' => {},
                     else => {
                         buffer[pos] = ' ';
                         pos += 1;
@@ -71,47 +69,97 @@ pub fn luastrip(source: []u8, allocator: std.mem.Allocator) ![:0]const u8 {
     return ret[0 .. pos - 1 :0];
 }
 
+test "luastrip just whitepaces" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer _ = gpa.deinit();
+
+    const input = "  \r\n\t \r \n \t\t ";
+    const output = try luastrip(std.mem.sliceTo(input, 0), allocator);
+    defer allocator.free(output);
+    //try testing.expectEqualStrings("", output);
+}
+
+test "luastrip simple expression - not changed" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer _ = gpa.deinit();
+
+    const input = "local a=1";
+    const output = try luastrip(std.mem.sliceTo(input, 0), allocator);
+    defer allocator.free(output);
+    try testing.expectEqualStrings("local a=1", output);
+}
+
+test "luastrip simple expression - whitespace removed" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer _ = gpa.deinit();
+
+    const input = "\t local\t a = 1 \n";
+    const output = try luastrip(std.mem.sliceTo(input, 0), allocator);
+    defer allocator.free(output);
+    try testing.expectEqualStrings("local a=1", output);
+}
+
+test "luastrip bigger script" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer _ = gpa.deinit();
+
+    const input =
+        "\r\n " ++
+        " -- Some bigger script \n" ++
+        " \n\n " ++
+        "\tlocal a = \t1\n" ++
+        "   local   b =   2\n\n" ++
+        " --[[ Big Block of comment \n" ++
+        "      should be removed  \n" ++
+        "]]" ++
+        "print ( 'result =\\''  ..  \n( a + b ) ..\n '\\'') \r\n   \n";
+    const output = try luastrip(std.mem.sliceTo(input, 0), allocator);
+    defer allocator.free(output);
+    try testing.expectEqualStrings("local a=1 local b=2 print('result =\\''..(a+b)..'\\'')", output);
+}
+
 const Tokenizer = struct {
-    data: []u8 = undefined,
+    data: [:0]const u8 = undefined,
     pos: usize = 0,
     peek: []const u8 = " ",
+
+    pub fn init(data: [:0]const u8) Tokenizer {
+        var iterator: Tokenizer = .{
+            .data = data,
+        };
+        iterator.peek = iterator.next_token();
+        return iterator;
+    }
 
     pub fn next(self: *Tokenizer) []const u8 {
         const token = self.peek;
         self.peek = self.next_token();
-        if (token[0] == ' ') {
-            while (self.peek[0] == ' ') {
-                self.peek = self.next_token();
-            }
-        }
         return token;
     }
 
     fn next_token(self: *Tokenizer) []const u8 {
-        if (self.pos >= self.data.len - 1) {
+        if (self.pos >= self.data.len) {
             return "\x00";
         }
-
+        std.log.debug("-{d}-{d}-{s}---", .{ self.pos, self.data.len, self.data[self.pos..] });
         switch (self.data[self.pos]) {
-            ' ', '\t' => {
-                while (self.pos < self.data.len - 1 and (self.data[self.pos] == ' ' or self.data[self.pos] == '\t')) {
+            ' ', '\t', '\r', '\n' => {
+                while (self.pos < self.data.len and (self.data[self.pos] == ' ' or self.data[self.pos] == '\t' or self.data[self.pos] == '\r' or self.data[self.pos] == '\n')) {
                     self.pos += 1;
                 }
                 return self.next_token();
             },
-            '\r', '\n' => {
-                while (self.pos < self.data.len - 1 and (self.data[self.pos] == '\r' or self.data[self.pos] == '\n')) {
-                    self.pos += 1;
-                }
-                return " ";
-            },
             '-' => {
-                if (self.pos < self.data.len - 2 and self.data[self.pos + 1] == '-') {
+                if (self.pos < self.data.len - 1 and self.data[self.pos + 1] == '-') {
                     const blockLen = getBlockLen(self.data[self.pos + 2 ..]);
                     if (blockLen > 0) {
                         self.pos += blockLen + 2;
                     } else {
-                        while (self.pos < self.data.len - 1 and self.data[self.pos] != '\r' and self.data[self.pos] != '\n') {
+                        while (self.pos < self.data.len and self.data[self.pos] != '\r' and self.data[self.pos] != '\n') {
                             self.pos += 1;
                         }
                     }
@@ -134,8 +182,8 @@ const Tokenizer = struct {
                         },
                     }
                 }
-                std.log.debug("err>{s}<", .{self.data[start..]});
-                unreachable;
+                self.pos += 1;
+                return self.data[start .. self.pos - 1];
             },
             '"' => {
                 const start = self.pos;
@@ -190,7 +238,105 @@ const Tokenizer = struct {
     }
 };
 
-fn getBlockLen(data: []u8) usize {
+test "simple tokens" {
+    var tokenizer = Tokenizer.init("a=1");
+
+    try testing.expectEqualStrings("a", tokenizer.next());
+    try testing.expectEqualStrings("=", tokenizer.next());
+    try testing.expectEqualStrings("1", tokenizer.next());
+    const end = tokenizer.next();
+    try testing.expect(end[0] == 0);
+}
+
+test "simple tokens with spaces" {
+    var tokenizer = Tokenizer.init("  a\t\n = \t\n\r1\t ");
+
+    try testing.expectEqualStrings("a", tokenizer.next());
+    try testing.expectEqualStrings("=", tokenizer.next());
+    try testing.expectEqualStrings("1", tokenizer.next());
+    const end = tokenizer.next();
+    try testing.expect(end[0] == 0);
+}
+
+test "simple string with escaped quote" {
+    var tokenizer = Tokenizer.init("a='test \\'123\\''");
+
+    try testing.expectEqualStrings("a", tokenizer.next());
+    try testing.expectEqualStrings("=", tokenizer.next());
+    try testing.expectEqualStrings("'test \\'123\\''", tokenizer.next());
+    const end = tokenizer.next();
+    try testing.expect(end[0] == 0);
+}
+
+test "string with escaped quote" {
+    var tokenizer = Tokenizer.init("a=\"test \\\"123\\\"\"");
+
+    try testing.expectEqualStrings("a", tokenizer.next());
+    try testing.expectEqualStrings("=", tokenizer.next());
+    try testing.expectEqualStrings("\"test \\\"123\\\"\"", tokenizer.next());
+    const end = tokenizer.next();
+    try testing.expect(end[0] == 0);
+}
+
+test "block string" {
+    var tokenizer = Tokenizer.init("a=[==[this is a test]==]");
+
+    try testing.expectEqualStrings("a", tokenizer.next());
+    try testing.expectEqualStrings("=", tokenizer.next());
+    try testing.expectEqualStrings("[==[this is a test]==]", tokenizer.next());
+    const end = tokenizer.next();
+    try testing.expect(end[0] == 0);
+}
+
+test "line comment" {
+    var tokenizer = Tokenizer.init("a=1--this is a comment");
+
+    try testing.expectEqualStrings("a", tokenizer.next());
+    try testing.expectEqualStrings("=", tokenizer.next());
+    try testing.expectEqualStrings("1", tokenizer.next());
+    const end = tokenizer.next();
+    try testing.expect(end[0] == 0);
+}
+
+test "punctations" {
+    var tokenizer = Tokenizer.init("{}()[].+-*/#=,~:");
+
+    try testing.expectEqualStrings("{", tokenizer.next());
+    try testing.expectEqualStrings("}", tokenizer.next());
+    try testing.expectEqualStrings("(", tokenizer.next());
+    try testing.expectEqualStrings(")", tokenizer.next());
+    try testing.expectEqualStrings("[", tokenizer.next());
+    try testing.expectEqualStrings("]", tokenizer.next());
+    try testing.expectEqualStrings(".", tokenizer.next());
+    try testing.expectEqualStrings("+", tokenizer.next());
+    try testing.expectEqualStrings("-", tokenizer.next());
+    try testing.expectEqualStrings("*", tokenizer.next());
+    try testing.expectEqualStrings("/", tokenizer.next());
+    try testing.expectEqualStrings("#", tokenizer.next());
+    try testing.expectEqualStrings("=", tokenizer.next());
+    try testing.expectEqualStrings(",", tokenizer.next());
+    try testing.expectEqualStrings("~", tokenizer.next());
+    try testing.expectEqualStrings(":", tokenizer.next());
+    const end = tokenizer.next();
+    try testing.expect(end[0] == 0);
+}
+
+test "names" {
+    var tokenizer = Tokenizer.init(" a.test_4_names:_call( other5 ) ");
+
+    try testing.expectEqualStrings("a", tokenizer.next());
+    try testing.expectEqualStrings(".", tokenizer.next());
+    try testing.expectEqualStrings("test_4_names", tokenizer.next());
+    try testing.expectEqualStrings(":", tokenizer.next());
+    try testing.expectEqualStrings("_call", tokenizer.next());
+    try testing.expectEqualStrings("(", tokenizer.next());
+    try testing.expectEqualStrings("other5", tokenizer.next());
+    try testing.expectEqualStrings(")", tokenizer.next());
+    const end = tokenizer.next();
+    try testing.expect(end[0] == 0);
+}
+
+fn getBlockLen(data: []const u8) usize {
     const eqals = "========================================================================================================================";
     if (data[0] != '[') {
         return 0;
@@ -204,7 +350,7 @@ fn getBlockLen(data: []u8) usize {
     }
 
     var pos = eqlen + 2;
-    while (pos < data.len) : (pos += 1) {
+    while (pos < data.len - eqlen - 1) : (pos += 1) {
         if (data[pos] == ']') {
             if ((eqlen == 0 or std.mem.eql(u8, data[pos + 1 .. pos + 1 + eqlen], eqals[0..eqlen])) and data[pos + 1 + eqlen] == ']') {
                 return pos + eqlen + 2;
@@ -212,4 +358,39 @@ fn getBlockLen(data: []u8) usize {
         }
     }
     return 0;
+}
+
+test "getBlockLen with simple block" {
+    const string: []const u8 = "[[test]]";
+    const len = getBlockLen(string);
+    try testing.expectEqualStrings("[[test]]", string[0..len]);
+}
+
+test "getBlockLen with simple block additional text" {
+    const string: []const u8 = "[[test]] outside block";
+    const len = getBlockLen(string);
+    try testing.expectEqualStrings("[[test]]", string[0..len]);
+}
+
+test "getBlockLen not starting with a block" {
+    const string: []const u8 = " [[test]]";
+    try testing.expect(getBlockLen(string) == 0);
+}
+
+test "getBlockLen with one eqauls block" {
+    const string: []const u8 = "[=[test]=] outside block";
+    const len = getBlockLen(string);
+    try testing.expectEqualStrings("[=[test]=]", string[0..len]);
+}
+
+test "getBlockLen with multiple eqauls block" {
+    const string: []const u8 = "[===[test]===] outside block";
+    const len = getBlockLen(string);
+    try testing.expectEqualStrings("[===[test]===]", string[0..len]);
+}
+
+test "getBlockLen with simple block with no mathcing end" {
+    try testing.expect(getBlockLen("[===[test]====]") == 0);
+    try testing.expect(getBlockLen("[===[test]==]") == 0);
+    try testing.expect(getBlockLen("[===[test]]") == 0);
 }
