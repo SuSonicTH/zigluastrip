@@ -128,7 +128,6 @@ const Tokenizer = struct {
         if (self.pos >= self.data.len) {
             return "\x00";
         }
-        std.log.debug("-{d}-{d}-{s}---", .{ self.pos, self.data.len, self.data[self.pos..] });
         switch (self.data[self.pos]) {
             ' ', '\t', '\r', '\n' => {
                 while (self.pos < self.data.len and (self.data[self.pos] == ' ' or self.data[self.pos] == '\t' or self.data[self.pos] == '\r' or self.data[self.pos] == '\n')) {
