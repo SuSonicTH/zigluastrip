@@ -15,7 +15,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    _ = zigLuaStrip.builder.addInstallArtifact(exe, .{});
+    zigLuaStrip.builder.installArtifact(exe);
+
     exe.addModule("zigLuaStrip", zigLuaStrip);
     const exe_artifact = b.addInstallArtifact(exe, .{});
 
