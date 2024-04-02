@@ -11,7 +11,7 @@ To compile the executable call `zig build exe` the resulting executable will be 
 ## zig module
 To use this as a module in you project create a `build.zig.zon` file, adding zigLuaStrip as dependency.
 
-The url and hash are from the current master version, tested with zig 0.11.0
+The url and hash are from the current master version, tested with zig master (upcomming 0.12.0)
 
 ```zig
 .{ 
@@ -20,8 +20,8 @@ The url and hash are from the current master version, tested with zig 0.11.0
     .paths = .{""},
     .dependencies = .{ 
         .zigLuaStrip = .{
-            .url = "https://github.com/SuSonicTH/zigStringUtil/archive/66577eecdd273b626fe59b6d46b3349331fda632.tar.gz",
-            .hash = "1220024750ad8df560a590919c57725eda68f68f7756d443aa32a3a8be8ee21905a9",
+            .url = "https://github.com/SuSonicTH/zigluastrip/archive/7f8aaac5bd62b7c56c8ad06ed18685599f948d50.tar.gz",
+            .hash = "1220f3a40896acfdf242b6d7d16e0658282b1ae708b5cde7ff2eab6fcc96b7e8be24",
         } 
     } 
 }
