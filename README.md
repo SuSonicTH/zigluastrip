@@ -2,7 +2,7 @@
 a small commandline tool/library to minimize a lua source script by removing unnessesary whitespaces and comments to compact the source file.
 
 ## compile exe
-To compile the executable you need zig (tested with 0.11.0) it can be downloadad as a single archive from [ziglang.org](https://ziglang.org/download/)
+To compile the executable you need zig, tested with master (upcomming 0.12.0) it can be downloadad as a single archive from [ziglang.org](https://ziglang.org/download/)
 
 Uncompress the archive and either add it to your path or call the build command with the full path.
 
@@ -17,8 +17,9 @@ The url and hash are from the current master version, tested with zig 0.11.0
 .{ 
     .name = "myProject", 
     .version = "0.0.1", 
+    .paths = .{""},
     .dependencies = .{ 
-        .zigStringUtil = .{
+        .zigLuaStrip = .{
             .url = "https://github.com/SuSonicTH/zigStringUtil/archive/66577eecdd273b626fe59b6d46b3349331fda632.tar.gz",
             .hash = "1220024750ad8df560a590919c57725eda68f68f7756d443aa32a3a8be8ee21905a9",
         } 
@@ -45,7 +46,7 @@ const exe = b.addExecutable(.{
 });
 
 //add module
-exe.addModule("zigLuaStrip", zigLuaStrip.module("zigLuaStrip"));
+exe.root_module.addImport("zigLuaStrip", zigLuaStrip.module("zigLuaStrip"));
 ```
 
 ## zigLuaStrip exe as dependency in your build
