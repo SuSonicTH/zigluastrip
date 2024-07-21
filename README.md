@@ -2,7 +2,7 @@
 a small commandline tool/library to minimize a lua source script by removing unnessesary whitespaces and comments to compact the source file.
 
 ## compile exe
-To compile the executable you need zig, tested with master (upcomming 0.12.0) it can be downloadad as a single archive from [ziglang.org](https://ziglang.org/download/)
+To compile the executable you need zig, tested with zig 0.13.0, it can be downloadad as a single archive from [ziglang.org](https://ziglang.org/download/)
 
 Uncompress the archive and either add it to your path or call the build command with the full path.
 
@@ -11,7 +11,7 @@ To compile the executable call `zig build exe` the resulting executable will be 
 ## zig module
 To use this as a module in you project create a `build.zig.zon` file, adding zigLuaStrip as dependency.
 
-The url and hash are from the current master version, tested with zig master (upcomming 0.12.0)
+The url and hash are from the current master version, tested with zig 0.13.0
 
 ```zig
 .{ 
@@ -40,7 +40,7 @@ and add it as a module to your exe/lib
 //sample exe
 const exe = b.addExecutable(.{
     .name = "zli",
-    .root_source_file = .{ .path = "src/main.zig" },
+    .root_source_file = b.path("src/main.zig"),
     .target = target,
     .optimize = optimize,
 });

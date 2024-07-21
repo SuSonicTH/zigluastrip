@@ -5,12 +5,12 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const zigLuaStrip = b.addModule("zigLuaStrip", .{
-        .root_source_file = .{ .path = "src/luastrip.zig" },
+        .root_source_file = b.path("src/luastrip.zig"),
     });
 
     const exe = b.addExecutable(.{
         .name = "zigluastrip",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -25,7 +25,7 @@ pub fn build(b: *std.Build) void {
     exe_step.dependOn(&exe_artifact.step);
 
     const tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
