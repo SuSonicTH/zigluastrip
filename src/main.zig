@@ -12,6 +12,8 @@ pub fn main() !void {
     if (args.len == 3) {
         try luastrip.file(args[1], args[2], allocator);
     } else {
-        try std.io.getStdOut().writer().writeAll("\nusage: zigluastrip <input_file> <output_file>\n");
+        var stdout_buffer: [1024]u8 = undefined;
+        var stdout = std.fs.File.stdout().writer(&stdout_buffer).interface;
+        _ = try stdout.write("\nusage: zigluastrip <input_file> <output_file>\n");
     }
 }

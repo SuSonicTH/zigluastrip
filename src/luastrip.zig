@@ -8,7 +8,9 @@ pub fn file(input: [:0]const u8, output: [:0]const u8, allocator: std.mem.Alloca
     const file_size = (try input_file.stat()).size;
     const data = try allocator.alloc(u8, file_size + 1);
     defer allocator.free(data);
-    _ = try input_file.reader().readAll(data);
+    var buffer: [1024]u8 = undefined;
+    var reader = input_file.reader(&buffer);
+    _ = try reader.read(data);
     data[file_size] = 0;
 
     const stripped = try strip(data[0..file_size :0], allocator);
@@ -17,7 +19,8 @@ pub fn file(input: [:0]const u8, output: [:0]const u8, allocator: std.mem.Alloca
     const output_file = try std.fs.cwd().createFile(output, .{});
     defer output_file.close();
 
-    try output_file.writer().writeAll(stripped);
+    var writer = output_file.writer(&buffer).interface;
+    _ = try writer.write(stripped);
 }
 
 pub fn strip(source: [:0]const u8, allocator: std.mem.Allocator) ![:0]const u8 {
