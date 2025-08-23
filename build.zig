@@ -10,13 +10,14 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "zigluastrip",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     b.installArtifact(exe);
-    //zigLuaStrip.builder.installArtifact(exe);
 
     exe.root_module.addImport("zigLuaStrip", zigLuaStrip);
     const exe_artifact = b.addInstallArtifact(exe, .{});
@@ -25,9 +26,11 @@ pub fn build(b: *std.Build) void {
     exe_step.dependOn(&exe_artifact.step);
 
     const tests = b.addTest(.{
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     const run_tests = b.addRunArtifact(tests);
 
