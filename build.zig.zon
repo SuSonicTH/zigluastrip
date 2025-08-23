@@ -1,0 +1,7 @@
+.{
+    .name = .zigluastrip,
+    .fingerprint = 0x71265ef36c139183,
+    .version = "0.2.0",
+    .paths = .{""},
+    .dependencies = .{},
+}
