@@ -1,4 +1,5 @@
 const std = @import("std");
+const stdout = @import("stdout.zig");
 const luastrip = @import("zigLuaStrip");
 
 pub fn main() !void {
@@ -12,8 +13,7 @@ pub fn main() !void {
     if (args.len == 3) {
         try luastrip.file(args[1], args[2], allocator);
     } else {
-        var stdout_buffer: [1024]u8 = undefined;
-        var stdout = std.fs.File.stdout().writer(&stdout_buffer).interface;
-        _ = try stdout.write("\nusage: zigluastrip <input_file> <output_file>\n");
+        _ = try stdout.getWriter().write("\nusage: zigluastrip <input_file> <output_file>\n");
+        stdout.flush();
     }
 }

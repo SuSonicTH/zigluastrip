@@ -2,7 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 
 pub fn file(input: [:0]const u8, output: [:0]const u8, allocator: std.mem.Allocator) !void {
-    const input_file = try std.fs.cwd().openFile(input, .{});
+    var input_file = try std.fs.cwd().openFile(input, .{});
     defer input_file.close();
 
     const file_size = (try input_file.stat()).size;
@@ -16,7 +16,7 @@ pub fn file(input: [:0]const u8, output: [:0]const u8, allocator: std.mem.Alloca
     const stripped = try strip(data[0..file_size :0], allocator);
     defer allocator.free(stripped);
 
-    const output_file = try std.fs.cwd().createFile(output, .{});
+    var output_file = try std.fs.cwd().createFile(output, .{});
     defer output_file.close();
 
     var writer = output_file.writer(&buffer).interface;
