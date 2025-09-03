@@ -20,15 +20,6 @@ pub fn file(input: [:0]const u8, output: [:0]const u8, allocator: std.mem.Alloca
     var writer = &writer_adapter.interface;
     _ = try writer.write(stripped);
     try writer.flush();
-
-    var stdout_buffer: [1024]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-    var stdout = &stdout_writer.interface;
-
-    try stdout.print("original size:{d: >6}\n", .{data.len});
-    try stdout.print("stripped size:{d: >6}\n", .{stripped.len});
-    try stdout.print("savings:      {d: >6}\n", .{data.len - stripped.len});
-    try stdout.flush();
 }
 
 pub fn strip(source: []const u8, allocator: std.mem.Allocator) ![]const u8 {
