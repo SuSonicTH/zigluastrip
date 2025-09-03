@@ -1,32 +1,40 @@
 const std = @import("std");
-const testing = std.testing;
 
 pub fn file(input: [:0]const u8, output: [:0]const u8, allocator: std.mem.Allocator) !void {
     var input_file = try std.fs.cwd().openFile(input, .{});
     defer input_file.close();
 
-    const file_size = (try input_file.stat()).size;
-    const data = try allocator.alloc(u8, file_size + 1);
+    var read_buffer: [1024 * 4]u8 = undefined;
+    var reader = input_file.reader(&read_buffer);
+    const data = try reader.interface.readAlloc(allocator, (try input_file.stat()).size);
     defer allocator.free(data);
-    var buffer: [1024]u8 = undefined;
-    var reader = input_file.reader(&buffer);
-    _ = try reader.read(data);
-    data[file_size] = 0;
 
-    const stripped = try strip(data[0..file_size :0], allocator);
+    const stripped = try strip(data, allocator);
     defer allocator.free(stripped);
 
     var output_file = try std.fs.cwd().createFile(output, .{});
     defer output_file.close();
 
-    var writer = output_file.writer(&buffer).interface;
+    var write_buffer: [1024 * 4]u8 = undefined;
+    var writer_adapter = output_file.writer(&write_buffer);
+    var writer = &writer_adapter.interface;
     _ = try writer.write(stripped);
+    try writer.flush();
+
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    var stdout = &stdout_writer.interface;
+
+    try stdout.print("original size:{d: >6}\n", .{data.len});
+    try stdout.print("stripped size:{d: >6}\n", .{stripped.len});
+    try stdout.print("savings:      {d: >6}\n", .{data.len - stripped.len});
+    try stdout.flush();
 }
 
-pub fn strip(source: [:0]const u8, allocator: std.mem.Allocator) ![:0]const u8 {
+pub fn strip(source: []const u8, allocator: std.mem.Allocator) ![]const u8 {
     var tokenizer = Tokenizer.init(source);
 
-    const buffer = try allocator.alloc(u8, source.len + 1);
+    const buffer = try allocator.alloc(u8, source.len);
     errdefer allocator.free(buffer);
     var pos: usize = 0;
 
@@ -49,11 +57,11 @@ pub fn strip(source: [:0]const u8, allocator: std.mem.Allocator) ![:0]const u8 {
         }
     }
 
-    buffer[pos] = 0;
-    pos += 1;
-    const ret = try allocator.realloc(buffer, pos);
-    return ret[0 .. pos - 1 :0];
+    const ret: []u8 = try allocator.realloc(buffer, pos);
+    return ret;
 }
+
+const testing = std.testing;
 
 test "strip just whitepaces" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -109,11 +117,11 @@ test "strip bigger script" {
 }
 
 const Tokenizer = struct {
-    data: [:0]const u8 = undefined,
+    data: []const u8 = undefined,
     pos: usize = 0,
     peek: []const u8 = " ",
 
-    pub fn init(data: [:0]const u8) Tokenizer {
+    pub fn init(data: []const u8) Tokenizer {
         var iterator: Tokenizer = .{
             .data = data,
         };
