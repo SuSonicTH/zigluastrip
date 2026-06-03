@@ -1,5 +1,4 @@
 const std = @import("std");
-const testing = std.testing;
 
 pub fn file(io: std.Io, input: [:0]const u8, output: [:0]const u8, allocator: std.mem.Allocator) !void {
     var input_file = try std.Io.Dir.cwd().openFile(io, input, .{});
@@ -14,7 +13,7 @@ pub fn file(io: std.Io, input: [:0]const u8, output: [:0]const u8, allocator: st
     _ = try reader.readSliceAll(data);
     data[file_size] = 0;
 
-    const stripped = try strip(data[0..file_size :0], allocator);
+    const stripped = try strip(data, allocator);
     defer allocator.free(stripped);
 
     var output_file = try std.Io.Dir.cwd().createFile(io, output, .{});
@@ -22,13 +21,15 @@ pub fn file(io: std.Io, input: [:0]const u8, output: [:0]const u8, allocator: st
 
     var writer_if = output_file.writer(io, &buffer);
     const writer = &writer_if.interface;
+
     _ = try writer.write(stripped);
+    try writer.flush();
 }
 
-pub fn strip(source: [:0]const u8, allocator: std.mem.Allocator) ![:0]const u8 {
+pub fn strip(source: []const u8, allocator: std.mem.Allocator) ![]const u8 {
     var tokenizer = Tokenizer.init(source);
 
-    const buffer = try allocator.alloc(u8, source.len + 1);
+    const buffer = try allocator.alloc(u8, source.len);
     errdefer allocator.free(buffer);
     var pos: usize = 0;
 
@@ -51,11 +52,11 @@ pub fn strip(source: [:0]const u8, allocator: std.mem.Allocator) ![:0]const u8 {
         }
     }
 
-    buffer[pos] = 0;
-    pos += 1;
-    const ret = try allocator.realloc(buffer, pos);
-    return ret[0 .. pos - 1 :0];
+    const ret: []u8 = try allocator.realloc(buffer, pos);
+    return ret;
 }
+
+const testing = std.testing;
 
 test "strip just whitepaces" {
     const allocator = std.testing.allocator;
@@ -103,11 +104,11 @@ test "strip bigger script" {
 }
 
 const Tokenizer = struct {
-    data: [:0]const u8 = undefined,
+    data: []const u8 = undefined,
     pos: usize = 0,
     peek: []const u8 = " ",
 
-    pub fn init(data: [:0]const u8) Tokenizer {
+    pub fn init(data: []const u8) Tokenizer {
         var iterator: Tokenizer = .{
             .data = data,
         };
