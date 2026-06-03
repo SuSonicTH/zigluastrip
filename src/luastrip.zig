@@ -10,7 +10,7 @@ pub fn file(io: std.Io, input: [:0]const u8, output: [:0]const u8, allocator: st
     var buffer: [1024]u8 = undefined;
     var reader_if = input_file.reader(io, &buffer);
     const reader = &reader_if.interface;
-    _ = try reader.readSliceAll(data);
+    _ = try reader.readSliceAll(data[0..file_size]);
     data[file_size] = 0;
 
     const stripped = try strip(data, allocator);
