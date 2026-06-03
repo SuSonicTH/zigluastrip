@@ -2,11 +2,11 @@
 a small commandline tool/library to minimize a lua source script by removing unnessesary whitespaces and comments to compact the source file.
 
 ## compile exe
-To compile the executable you need zig, tested with version 0.15.1 it can be downloadad as a single archive from [ziglang.org](https://ziglang.org/download/)
+To compile the executable you need zig, tested with version 0.16.0 it can be downloadad as a single archive from [ziglang.org](https://ziglang.org/download/)
 
 Uncompress the archive and either add it to your path or call the build command with the full path.
 
-To compile the executable call `zig build exe` the resulting executable will be in `zig-out/bin` If you want create a slightly faster release build call `zig build exe -Doptimize=ReleaseFast`
+To compile the executable call `zig build` the resulting executable will be in `zig-out/bin` If you want create a slightly faster release build call `zig build -Doptimize=ReleaseFast`
 
 ## zig module
 To use this as a module in you project create a `build.zig.zon` file, adding zigLuaStrip as dependency.

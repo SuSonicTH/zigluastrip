@@ -1,25 +1,27 @@
 const std = @import("std");
 const testing = std.testing;
 
-pub fn file(input: [:0]const u8, output: [:0]const u8, allocator: std.mem.Allocator) !void {
-    var input_file = try std.fs.cwd().openFile(input, .{});
-    defer input_file.close();
+pub fn file(io: std.Io, input: [:0]const u8, output: [:0]const u8, allocator: std.mem.Allocator) !void {
+    var input_file = try std.Io.Dir.cwd().openFile(io, input, .{});
+    defer input_file.close(io);
 
-    const file_size = (try input_file.stat()).size;
-    const data = try allocator.alloc(u8, file_size + 1);
+    const file_size = (try input_file.stat(io)).size;
+    var data = try allocator.alloc(u8, file_size + 1);
     defer allocator.free(data);
     var buffer: [1024]u8 = undefined;
-    var reader = input_file.reader(&buffer);
-    _ = try reader.read(data);
+    var reader_if = input_file.reader(io, &buffer);
+    const reader = &reader_if.interface;
+    _ = try reader.readSliceAll(data);
     data[file_size] = 0;
 
     const stripped = try strip(data[0..file_size :0], allocator);
     defer allocator.free(stripped);
 
-    var output_file = try std.fs.cwd().createFile(output, .{});
-    defer output_file.close();
+    var output_file = try std.Io.Dir.cwd().createFile(io, output, .{});
+    defer output_file.close(io);
 
-    var writer = output_file.writer(&buffer).interface;
+    var writer_if = output_file.writer(io, &buffer);
+    const writer = &writer_if.interface;
     _ = try writer.write(stripped);
 }
 
@@ -56,9 +58,7 @@ pub fn strip(source: [:0]const u8, allocator: std.mem.Allocator) ![:0]const u8 {
 }
 
 test "strip just whitepaces" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer _ = gpa.deinit();
+    const allocator = std.testing.allocator;
 
     const input = "  \r\n\t \r \n \t\t ";
     const output = try strip(std.mem.sliceTo(input, 0), allocator);
@@ -67,9 +67,7 @@ test "strip just whitepaces" {
 }
 
 test "strip simple expression - not changed" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer _ = gpa.deinit();
+    const allocator = std.testing.allocator;
 
     const input = "local a=1";
     const output = try strip(std.mem.sliceTo(input, 0), allocator);
@@ -78,9 +76,7 @@ test "strip simple expression - not changed" {
 }
 
 test "strip simple expression - whitespace removed" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer _ = gpa.deinit();
+    const allocator = std.testing.allocator;
 
     const input = "\t local\t a = 1 \n";
     const output = try strip(std.mem.sliceTo(input, 0), allocator);
@@ -89,9 +85,7 @@ test "strip simple expression - whitespace removed" {
 }
 
 test "strip bigger script" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer _ = gpa.deinit();
+    const allocator = std.testing.allocator;
 
     const input =
         "\r\n " ++
