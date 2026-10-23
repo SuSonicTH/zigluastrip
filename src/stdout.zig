@@ -28,6 +28,6 @@ pub fn getErrWriter(io: std.Io) *std.Io.Writer {
     return stderr_writer_interface;
 }
 
-pub fn flushErr() void {
-    getErrWriter().flush() catch @panic("could not flush to stderr");
+pub fn flushErr(io: std.Io) void {
+    getErrWriter(io).flush() catch @panic("could not flush to stderr");
 }

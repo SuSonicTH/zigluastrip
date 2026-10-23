@@ -2,7 +2,7 @@
 a small commandline tool/library to minimize a lua source script by removing unnessesary whitespaces and comments to compact the source file.
 
 ## compile exe
-To compile the executable you need zig, tested with version 0.16.0 it can be downloadad as a single archive from [ziglang.org](https://ziglang.org/download/)
+To compile the executable you need zig, tested with version 0.17.0 it can be downloadad as a single archive from [ziglang.org](https://ziglang.org/download/)
 
 Uncompress the archive and either add it to your path or call the build command with the full path.
 
@@ -17,7 +17,7 @@ zig fetch --save git+https://github.com/SuSonicTH/zigluastrip#HEAD
 
 and in your `build.zig` add the module as dependecy
 ```zig
-const zigLuaStrip = b.dependency("zigLuaStrip", .{
+const zigLuaStrip = b.dependency("zigluastrip", .{
     .target = target,
     .optimize = optimize,
 });
@@ -28,13 +28,16 @@ and add it as a module to your exe/lib
 //sample exe
 const exe = b.addExecutable(.{
     .name = "zli",
-    .root_source_file = b.path("src/main.zig"),
-    .target = target,
-    .optimize = optimize,
+    .root_module = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+        //add module
+        .imports = &.{
+            .{ .name = "zigLuaStrip", .module = zigLuaStrip.module("zigLuaStrip") },
+        },
+    }),
 });
-
-//add module
-exe.root_module.addImport("zigLuaStrip", zigLuaStrip.module("zigLuaStrip"));
 ```
 
 ## zigLuaStrip exe as dependency in your build
