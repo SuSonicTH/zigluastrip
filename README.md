@@ -1,21 +1,52 @@
 # zigluastrip
-a small commandline tool/library to minimize a lua source script by removing unnessesary whitespaces and comments to compact the source file.
 
-## compile exe
-To compile the executable you need zig, tested with version 0.17.0 it can be downloadad as a single archive from [ziglang.org](https://ziglang.org/download/)
+A small command-line tool and Zig library that shrinks Lua source files by
+removing unnecessary whitespace and comments.
 
-Uncompress the archive and either add it to your path or call the build command with the full path.
+## Requirements
 
-To compile the executable call `zig build` the resulting executable will be in `zig-out/bin` If you want create a slightly faster release build call `zig build -Doptimize=ReleaseFast`
+zigluastrip needs Zig 0.17.0 or newer. Download a release from
+[ziglang.org](https://ziglang.org/download/), unpack it, and either add it to your
+`PATH` or invoke the build with the full path to the Zig binary.
 
-## zig module
-To use this as a module in you project create a `build.zig.zon` file, adding zigLuaStrip as dependency.
+## Building the executable
+
+```bash
+zig build
+```
+
+The executable is written to `zig-out/bin/zigluastrip`. For a faster build use:
+
+```bash
+zig build -Doptimize=ReleaseFast
+```
+
+Run the tests with:
+
+```bash
+zig build test
+```
+
+## Command-line usage
+
+```
+zigluastrip <input_file> <output_file>
+```
+
+The input file is read completely, stripped, and written to the output file.
+On invalid arguments the tool prints usage information to stderr and exits with
+a non-zero status.
+
+## Zig library
+
+Add the package to your `build.zig.zon`:
 
 ```bash
 zig fetch --save git+https://github.com/SuSonicTH/zigluastrip#HEAD
 ```
 
-and in your `build.zig` add the module as dependecy
+Then expose the module in your `build.zig`:
+
 ```zig
 const zigLuaStrip = b.dependency("zigluastrip", .{
     .target = target,
@@ -23,16 +54,15 @@ const zigLuaStrip = b.dependency("zigluastrip", .{
 });
 ```
 
-and add it as a module to your exe/lib
+and import it in your executable or library:
+
 ```zig
-//sample exe
 const exe = b.addExecutable(.{
     .name = "zli",
     .root_module = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
-        //add module
         .imports = &.{
             .{ .name = "zigLuaStrip", .module = zigLuaStrip.module("zigLuaStrip") },
         },
@@ -40,14 +70,52 @@ const exe = b.addExecutable(.{
 });
 ```
 
-## zigLuaStrip exe as dependency in your build
-If you, like me, want to minimize lua source files at zig build time to include them in your binary you can also use this module to run the exe at build time.
+### Stripping a string
 
-Add zigLuaStrip as dependecy in `build.zig.zon` and `build.zig` as described above and then add a run step to do the stripping at compile time.
-The artifact name is in lower case, not upper case as the module!!
+```zig
+const zigLuaStrip = @import("zigLuaStrip");
+
+const stripped = try zigLuaStrip.strip(source, allocator);
+defer allocator.free(stripped);
+```
+
+`strip` returns a newly allocated string that the caller owns. It returns an
+error for malformed input such as an unterminated string, long string or long
+comment.
+
+### Stripping a file
+
+```zig
+try zigLuaStrip.file(io, input_path, output_path, allocator);
+```
+
+Both path arguments must be NUL-terminated (`[:0]const u8`).
+
+## Stripping at build time
+
+If you want to strip Lua scripts during `zig build`, add zigLuaStrip as a
+dependency as described above and add a run step:
 
 ```zig
 var strip_step = b.addRunArtifact(zigLuaStrip.artifact("zigluastrip"));
 strip_step.addArgs(&.{ script.input, script.output });
 exe.step.dependOn(&strip_step.step);
 ```
+
+The artifact name is lowercase (`zigluastrip`); the module name is camelCase
+(`zigLuaStrip`).
+
+## Limitations
+
+- zigluastrip is a lexer-level minifier. It does not parse or execute Lua; it
+  removes whitespace and comments only where doing so cannot change how the
+  surrounding tokens are lexed.
+- A leading `#!` shebang line is preserved verbatim, because Lua ignores that
+  line.
+- Newlines outside strings and comments are not preserved. Lua is
+  line-insensitive apart from the shebang line.
+- The tool is designed for textual Lua source. Binary input is not supported.
+
+## License
+
+MIT. See [LICENSE.txt](LICENSE.txt).

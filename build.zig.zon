@@ -3,6 +3,12 @@
     .fingerprint = 0x71265ef36c139183,
     .version = "0.2.0",
     .minimum_zig_version = "0.17.0",
-    .paths = .{""},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+        "LICENSE.txt",
+    },
     .dependencies = .{},
 }

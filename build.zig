@@ -24,10 +24,6 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(exe);
 
-    const exe_artifact = b.addInstallArtifact(exe, .{});
-    const exe_step = b.step("exe", "build the zigluastrip executeable");
-    exe_step.dependOn(&exe_artifact.step);
-
     const lib_tests = b.addTest(.{
         .root_module = zigLuaStrip,
     });
